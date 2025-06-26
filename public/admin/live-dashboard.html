@@ -1,0 +1,27 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Dashboard</title></head><body>
+  <h1>Sessions</h1>
+  <table border="1"><thead>
+    <tr><th>Title</th><th>Mentor</th><th>Time</th><th>Status</th></tr>
+  </thead><tbody id="tb"></tbody></table>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    async function load(){
+      const t = document.getElementById('tb');
+      t.innerHTML = '';
+      const list = await (await fetch('/api/admin/sessions')).json();
+      list.forEach(s=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${s.title}</td>
+          <td>${s.mentorName}</td>
+          <td>${new Date(s.scheduledAt).toLocaleString()}</td>
+          <td>${s.isLive? '🔴 Live':'⏳'} </td>`;
+        t.appendChild(tr);
+      });
+    }
+    const sock = io({path:'/ws'});
+    sock.on('session-updated', load);
+    load();
+  </script>
+</body></html>

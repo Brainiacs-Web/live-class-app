@@ -1,0 +1,39 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Watch</title>
+</head><body>
+  <h1 id="hdr">Loading…</h1>
+  <video id="teach" autoplay playsinline controls style="width:80%"></video>
+  <video id="stud" autoplay playsinline muted style="width:20%;position:fixed;bottom:1em;right:1em"></video>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/simple-peer@latest/simplepeer.min.js"></script>
+  <script>
+    (async ()=>{
+      const params = new URLSearchParams(location.search);
+      const key = params.get('key');
+      // load metadata
+      const list = await (await fetch('/api/sessions')).json();
+      const s = list.find(x=>x.rtmpKey===key);
+      hdr.textContent = s.title+' by '+s.mentorName;
+
+      // teacher HLS
+      const hlsUrl = `${location.protocol}//${location.host.replace(location.port,process.env.PORT?8080:location.port)}/hls/${key}.m3u8`;
+      if (Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(hlsUrl);
+        hls.attachMedia(teach);
+      } else teach.src = hlsUrl;
+
+      // student WebRTC
+      const stream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+      stud.srcObject = stream;
+      const peer = new SimplePeer({ initiator:true, trickle:false, stream });
+      const sock = io({path:'/ws'});
+      peer.on('signal', data => sock.emit('webrtc-signal',{key,data}));
+      sock.on('webrtc-signal',obj=> peer.signal(obj.data));
+      peer.on('stream', remote => teach.srcObject = remote);
+    })();
+  </script>
+</body></html>

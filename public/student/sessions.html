@@ -1,0 +1,25 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sessions</title></head><body>
+  <h1>Upcoming</h1>
+  <ul id="lst"></ul>
+  <script>
+    async function load(){
+      const lst = document.getElementById('lst');
+      lst.innerHTML = '';
+      const list = await (await fetch('/api/sessions')).json();
+      list.forEach(s=>{
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.textContent = '⏳';
+        setInterval(async ()=>{
+          const st = await (await fetch(`/api/session/${s.rtmpKey}/status`)).json();
+          btn.textContent = st.isLive? 'Join':'⏳';
+        },3000);
+        btn.onclick = ()=>location='watch.html?key='+s.rtmpKey;
+        li.innerHTML = `<b>${s.title}</b> by ${s.mentorName} @ ${new Date(s.scheduledAt).toLocaleTimeString()} `;
+        li.appendChild(btn);
+        lst.appendChild(li);
+      });
+    }
+    load();
+  </script>
+</body></html>

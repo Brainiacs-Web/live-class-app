@@ -1,0 +1,22 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Schedule</title></head><body>
+  <h1>New Session</h1>
+  <form id="form">
+    <label>Title:     <input name="title" required></label><br>
+    <label>Mentor:    <input name="mentorName" required></label><br>
+    <label>RTMP Key:  <input name="rtmpKey" required></label><br>
+    <label>Time:      <input type="datetime-local" name="scheduledAt" required></label><br>
+    <button>Create</button>
+  </form>
+  <script>
+    form.onsubmit = async e => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(form));
+      data.scheduledAt = new Date(data.scheduledAt).toISOString();
+      await fetch('/api/admin/session',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(data)
+      });
+      alert('Created!'); form.reset();
+    };
+  </script>
+</body></html>
