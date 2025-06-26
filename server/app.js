@@ -16,6 +16,8 @@ const app    = express();
 const server = http.createServer(app);
 const io     = socketio(server, { path: '/ws' });
 
+mongoose.set('strictQuery', false); // ✅ Fixes the warning
+
 // ✅ Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
