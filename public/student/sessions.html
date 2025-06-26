@@ -1,25 +1,65 @@
-<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sessions</title></head><body>
-  <h1>Upcoming</h1>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Sessions</title>
+  <style>
+    body { font-family: sans-serif; padding: 1em; }
+    li { margin-bottom: .5em; }
+    button { margin-left: 1em; }
+  </style>
+</head>
+<body>
+  <h1>🗓️ Upcoming Sessions</h1>
   <ul id="lst"></ul>
+
   <script>
-    async function load(){
+    const POLL_INTERVAL = 3000;
+
+    async function load() {
       const lst = document.getElementById('lst');
       lst.innerHTML = '';
-      const list = await (await fetch('/api/sessions')).json();
-      list.forEach(s=>{
-        const li = document.createElement('li');
+
+      let sessions;
+      try {
+        sessions = await (await fetch('/api/sessions')).json();
+      } catch (err) {
+        lst.innerHTML = '<li>Error loading sessions</li>';
+        return;
+      }
+
+      sessions.forEach(s => {
+        const li  = document.createElement('li');
         const btn = document.createElement('button');
-        btn.textContent = '⏳';
-        setInterval(async ()=>{
-          const st = await (await fetch(`/api/session/${s.rtmpKey}/status`)).json();
-          btn.textContent = st.isLive? 'Join':'⏳';
-        },3000);
-btn.onclick = () => location = 'watch.html?session=' + s.rtmpKey;
-        li.innerHTML = `<b>${s.title}</b> by ${s.mentorName} @ ${new Date(s.scheduledAt).toLocaleTimeString()} `;
+
+        btn.textContent = '⏳ Pending';
+        btn.disabled = true;
+
+        // Poll live status
+        setInterval(async () => {
+          try {
+            const res = await fetch(`/api/session/${s.rtmpKey}/status`);
+            const { isLive } = await res.json();
+            btn.textContent = isLive ? '▶️ Join Live' : '⏳ Pending';
+            btn.disabled = !isLive;
+          } catch (_) {
+            btn.textContent = '❌ Error';
+          }
+        }, POLL_INTERVAL);
+
+        btn.addEventListener('click', () => {
+          window.location.href = `watch.html?key=${encodeURIComponent(s.rtmpKey)}`;
+        });
+
+        li.innerHTML = `<strong>${s.title}</strong> by ${s.mentorName}
+                        @ ${new Date(s.scheduledAt).toLocaleString()}`;
         li.appendChild(btn);
         lst.appendChild(li);
       });
     }
+
+    // Initial load
     load();
   </script>
-</body></html>
+</body>
+</html>

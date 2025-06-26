@@ -16,7 +16,8 @@ const app    = express();
 const server = http.createServer(app);
 const io     = socketio(server, { path: '/ws' });
 
-mongoose.set('strictQuery', false); // ✅ Fixes the warning
+// Suppress Mongoose strictQuery deprecation warning
+mongoose.set('strictQuery', false);
 
 // ✅ Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {
@@ -25,50 +26,55 @@ mongoose.connect(process.env.MONGO_URI, {
 }).then(() => {
   console.log('✅ Connected to MongoDB');
 }).catch(err => {
-  console.error('❌ MongoDB Error:', err.message);
+  console.error('❌ MongoDB connection error:', err.message);
 });
 
 // ✅ Middleware
 app.use(cors());
 app.use(express.json());
 
-// ✅ Static file serving for frontend
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// ✅ Serve your frontend from the public folder (one level up from server/)
+app.use(express.static(path.resolve(__dirname, '../public')));
 
-// ✅ API Routes
+// ✅ API routes
 app.use('/api/admin', adminRt);
 app.use('/api', studRt);
 
-// ✅ Default root route (optional)
+// ✅ Fallback for root to serve index.html if you have one
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+  res.sendFile(path.resolve(__dirname, '../public/index.html'));
 });
 
-// ✅ RTMP monitor events
+// --- RTMP Monitor Events ---
+// When a stream goes live on your Replit RTMP server:
 monitor.on('start', async key => {
+  console.log(`🎥 Detected stream start: ${key}`);
   try {
-    await Session.findOneAndUpdate({ rtmpKey: key }, { isLive: true });
+    await Session.updateOne({ rtmpKey: key }, { isLive: true });
     recorder.start(key);
     io.emit('session-updated', { rtmpKey: key, isLive: true });
-    console.log(`🎥 Stream started: ${key}`);
   } catch (err) {
-    console.error('Error starting session:', err.message);
+    console.error('Error in start handler:', err.message);
   }
 });
 
+// When a stream stops on your Replit RTMP server:
 monitor.on('stop', async key => {
+  console.log(`🛑 Detected stream stop: ${key}`);
   try {
-    await Session.findOneAndUpdate({ rtmpKey: key }, { isLive: false });
+    await Session.updateOne({ rtmpKey: key }, { isLive: false });
     recorder.stop(key);
     io.emit('session-updated', { rtmpKey: key, isLive: false });
-    console.log(`🛑 Stream stopped: ${key}`);
   } catch (err) {
-    console.error('Error stopping session:', err.message);
+    console.error('Error in stop handler:', err.message);
   }
 });
 
-// ✅ Server listen
+// ✅ Start the HTTP + Socket.io server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
+  console.log(`🚀 Backend server running at http://localhost:${PORT}`);
+  console.log(`🔗 Using RTMP at ${process.env.RTMP_SERVER_URL}`);
+  console.log(`🔗 HLS base URL ${process.env.HLS_BASE_URL}`);
+  console.log(`🔗 RTMP stats URL ${process.env.RTMP_STATS_URL}`);
 });

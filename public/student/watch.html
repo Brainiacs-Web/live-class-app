@@ -1,39 +1,79 @@
-<!DOCTYPE html><html><head><meta charset="utf-8">
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Watch</title>
-</head><body>
-  <h1 id="hdr">Loading…</h1>
-  <video id="teach" autoplay playsinline controls style="width:80%"></video>
-  <video id="stud" autoplay playsinline muted style="width:20%;position:fixed;bottom:1em;right:1em"></video>
+  <title>Watch Session</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 1em; background: #000; color: #fff; }
+    h1 { margin-top: 0; }
+    video { display: block; margin: 1em auto; max-width: 100%; }
+    #videos { display: flex; justify-content: center; gap: 1em; flex-wrap: wrap; }
+    #teach { flex: 1 1 60%; }
+    #stud  { flex: 1 1 30%; }
+  </style>
+</head>
+<body>
+  <h1 id="hdr">Loading session…</h1>
+  <div id="videos">
+    <video id="teach" autoplay playsinline controls></video>
+    <video id="stud"  autoplay playsinline muted></video>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/simple-peer@latest/simplepeer.min.js"></script>
   <script>
-    (async ()=>{
+    (async () => {
+      // 1) Read stream key from URL
       const params = new URLSearchParams(location.search);
       const key = params.get('key');
-      // load metadata
-      const list = await (await fetch('/api/sessions')).json();
-      const s = list.find(x=>x.rtmpKey===key);
-      hdr.textContent = s.title+' by '+s.mentorName;
+      if (!key) {
+        hdr.textContent = '❌ No session key provided';
+        return;
+      }
 
-      // teacher HLS
-      const hlsUrl = `${location.protocol}//${location.host.replace(location.port,process.env.PORT?8080:location.port)}/hls/${key}.m3u8`;
+      // 2) Fetch session metadata
+      let session;
+      try {
+        const list = await (await fetch('/api/sessions')).json();
+        session = list.find(s => s.rtmpKey === key);
+        if (!session) throw new Error('Session not found');
+        hdr.textContent = `${session.title} by ${session.mentorName}`;
+      } catch (err) {
+        hdr.textContent = '❌ ' + err.message;
+        return;
+      }
+
+      // 3) HLS Setup
+      // 🔁 Replace <YOUR_HLS_BASE_URL> with your actual Replit HLS URL, e.g.:
+      //    https://cohesive-knuth-3f2a8f.id.repl.co/hls
+      const HLS_BASE_URL = '<YOUR_HLS_BASE_URL>';
+      const hlsUrl = `${HLS_BASE_URL}/${key}.m3u8`;
+
       if (Hls.isSupported()) {
         const hls = new Hls();
         hls.loadSource(hlsUrl);
         hls.attachMedia(teach);
-      } else teach.src = hlsUrl;
+      } else {
+        teach.src = hlsUrl;
+      }
 
-      // student WebRTC
-      const stream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
-      stud.srcObject = stream;
-      const peer = new SimplePeer({ initiator:true, trickle:false, stream });
-      const sock = io({path:'/ws'});
-      peer.on('signal', data => sock.emit('webrtc-signal',{key,data}));
-      sock.on('webrtc-signal',obj=> peer.signal(obj.data));
-      peer.on('stream', remote => teach.srcObject = remote);
+      // 4) Student WebRTC (camera + mic) — connects with teacher
+      try {
+        const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        stud.srcObject = localStream;
+
+        const peer = new SimplePeer({ initiator: true, trickle: false, stream: localStream });
+        const socket = io({ path: '/ws' });
+
+        peer.on('signal', data => socket.emit('webrtc-signal', { key, data }));
+        socket.on('webrtc-signal', ({ data }) => peer.signal(data));
+        peer.on('stream', remoteStream => teach.srcObject = remoteStream);
+      } catch (err) {
+        console.error('WebRTC error:', err);
+      }
     })();
   </script>
-</body></html>
+</body>
+</html>

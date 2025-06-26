@@ -1,2 +1,1 @@
-run = "nginx -c $PWD/nginx.conf -g 'daemon off;'"
-port = 8080
+run = "bash start.sh"
