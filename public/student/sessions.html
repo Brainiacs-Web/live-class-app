@@ -14,7 +14,7 @@
           const st = await (await fetch(`/api/session/${s.rtmpKey}/status`)).json();
           btn.textContent = st.isLive? 'Join':'⏳';
         },3000);
-        btn.onclick = ()=>location='watch.html?key='+s.rtmpKey;
+btn.onclick = () => location = 'watch.html?session=' + s.rtmpKey;
         li.innerHTML = `<b>${s.title}</b> by ${s.mentorName} @ ${new Date(s.scheduledAt).toLocaleTimeString()} `;
         li.appendChild(btn);
         lst.appendChild(li);
